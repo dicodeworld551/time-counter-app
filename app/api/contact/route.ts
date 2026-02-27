@@ -11,19 +11,15 @@ type ContactPayload = {
 
 export async function POST(request: Request) {
   try {
-    const { fullName, email, message } = (await request.json()) as ContactPayload;
+    const { fullName, email, message } =
+      (await request.json()) as ContactPayload;
 
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY;
     const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
 
     if (!clientEmail || !privateKey || !spreadsheetId) {
-      console.error('Missing required Google Sheets environment variables.', {
-        hasClientEmail: Boolean(clientEmail),
-        hasPrivateKey: Boolean(privateKey),
-        hasSpreadsheetId: Boolean(spreadsheetId)
-      });
-
+      console.error('Missing Google Sheets environment variables.');
       return NextResponse.json(
         { error: 'Google Sheets configuration is missing.' },
         { status: 500 }
@@ -48,11 +44,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ status: 'received' });
-  } catch (error) {
-    console.error('Failed to append contact submission to Google Sheets.', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+  } catch (error: any) {
+    console.error('Google Sheets append failed:', error?.response?.data || error);
 
     return NextResponse.json(
       { error: 'Unable to save contact form submission.' },
