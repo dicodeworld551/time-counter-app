@@ -1,0 +1,62 @@
+import { google } from 'googleapis';
+import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+
+type ContactPayload = {
+  fullName: string;
+  email: string;
+  message: string;
+};
+
+export async function POST(request: Request) {
+  try {
+    const { fullName, email, message } = (await request.json()) as ContactPayload;
+
+    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+
+    if (!clientEmail || !privateKey || !spreadsheetId) {
+      console.error('Missing required Google Sheets environment variables.', {
+        hasClientEmail: Boolean(clientEmail),
+        hasPrivateKey: Boolean(privateKey),
+        hasSpreadsheetId: Boolean(spreadsheetId)
+      });
+
+      return NextResponse.json(
+        { error: 'Google Sheets configuration is missing.' },
+        { status: 500 }
+      );
+    }
+
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: 'A:D',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[fullName, email, message, new Date().toISOString()]]
+      }
+    });
+
+    return NextResponse.json({ status: 'received' });
+  } catch (error) {
+    console.error('Failed to append contact submission to Google Sheets.', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return NextResponse.json(
+      { error: 'Unable to save contact form submission.' },
+      { status: 500 }
+    );
+  }
+}
